@@ -5,48 +5,41 @@ import { useAppStore } from '../store/store';
 const SongInfo = () => {
   const { songId } = useParams();
   
-  const {
-    currentSong,
-    isLoadingDetails,
-    fetchSongDetails,
-    error,
-  } = useAppStore();
+  const track = useAppStore((state) => {
+    const songFromState = state.currentSong?.id === songId ? state.currentSong : null;
+    const songFromSearch = state.searchResults.find(t => t.id === songId);
+    return songFromState || songFromSearch;
+  });
+  const isLoadingDetails = useAppStore((state) => state.isLoadingDetails);
+  const fetchSongDetails = useAppStore((state) => state.fetchSongDetails);
+  const error = useAppStore((state) => state.error);
 
-  // --- State Hooks for Lyrics ---
   const [lyrics, setLyrics] = useState(null);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
 
-  // ✅ CORRECTED: This useEffect now ONLY fetches the main song details.
   useEffect(() => {
-    fetchSongDetails(songId);
-  }, [songId, fetchSongDetails]);
-
-  // --- Lyrics Fetching Logic ---
-  const getLyrics = async () => {
-    if (lyrics) {
-      return;
+    if (!track) {
+      fetchSongDetails(songId);
     }
+  }, [songId, track, fetchSongDetails]);
+
+  const getLyrics = async () => {
+    if (lyrics) return;
     setIsLoadingLyrics(true);
-    
     const url = `https://spotify-scraper.p.rapidapi.com/v1/track/lyrics?trackId=${songId}&format=json`;
     const options = {
       method: 'GET',
       headers: {
-        // ❗️ Make sure this variable name matches your .env file
         'x-rapidapi-key': import.meta.env.VITE_RAPIDAPI_KEY,
         'x-rapidapi-host': 'spotify-scraper.p.rapidapi.com'
       }
     };
-    
     try {
       const response = await fetch(url, options);
       const result = await response.json();
-      
-      if (result.message) {
-        throw new Error(result.message);
-      }
-      setLyrics(result);
+      if (result.message) throw new Error(result.message);
+      setLyrics(result.lines || result); // Handle different possible API responses
     } catch (error) {
       console.error(error);
       setLyrics({ error: `Could not fetch lyrics. (${error.message})` });
@@ -55,7 +48,6 @@ const SongInfo = () => {
     }
   };
 
-  // ✅ CORRECT: This function correctly calls getLyrics() on button click.
   const handleShowLyrics = () => {
     setShowLyrics(!showLyrics);
     if (!lyrics) {
@@ -63,17 +55,17 @@ const SongInfo = () => {
     }
   };
 
-  if (isLoadingDetails) {
-    return <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white text-lg">Loading...</div>;
+  if (isLoadingDetails && !track) { // Only show full-page loader if track is not yet available
+    return <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white text-lg">Loading song details...</div>;
   }
   if (error) {
     return <div className="flex items-center justify-center min-h-screen bg-[#121212] text-red-400">Error: {error}</div>;
   }
-  if (!currentSong) {
-    return <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white">Song data not available.</div>;
+  // If still no track after loading,something went wrong or ID is invalid
+  if (!track) {
+    return <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white">Song not found. It might be an invalid link.</div>;
   }
 
-  const track = currentSong;
   const lyricsAvailable = Array.isArray(lyrics);
 
   return (
@@ -109,8 +101,8 @@ const SongInfo = () => {
                 </div>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-8">
                   <a href={track.external_urls.spotify} target="_blank" rel="noopener noreferrer" className="inline-block px-5 py-2 bg-green-600 rounded-full font-bold hover:bg-green-700 transition-colors">Listen on Spotify</a>
-                  <a href={track.album.external_urls.spotify} target="_blank" rel="noopener noreferrer" className="inline-block px-5 py-2 bg-white/10 rounded-full font-bold hover:bg-white/20 transition-colors">Go to Album</a>
-                  <button onClick={handleShowLyrics} className="px-5 py-2 bg-white/10 rounded-full font-bold hover:bg-white/20 transition-colors">
+                  <a href={track.album.external_urls.spotify} target="_blank" rel="noopener noreferrer" className="inline-block px-5 py-2 bg-white/40 rounded-full font-bold hover:bg-white/30 transition-colors">Go to Album</a>
+                  <button onClick={handleShowLyrics} className="px-5 py-2 bg-white/40 rounded-full font-bold hover:bg-white/30 transition-colors">
                     {showLyrics ? 'Hide Lyrics' : 'Show Lyrics'}
                   </button>
                 </div>

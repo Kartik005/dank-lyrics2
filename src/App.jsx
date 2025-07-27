@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAppStore } from './store/store';
 import SearchBar from './components/SearchBar';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom'; // Import the Link component
 import CardSkeleton from './components/CardSkeleton';
 
 function App() {
@@ -38,7 +38,7 @@ function App() {
           )}
           {error && <p className="text-red-400">Error: {error}</p>}
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {!isLoading && !error && searchResults.map((track) => (
               <Link to={`/song/${track.id}`} key={track.id}>
                 <div className="bg-gray-800 p-4 rounded-lg text-center hover:bg-gray-700 transition-colors">

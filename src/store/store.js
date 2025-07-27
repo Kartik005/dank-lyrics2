@@ -10,12 +10,17 @@ export const useAppStore = create((set, get) => ({
   searchResults: [],
   isLoading: false,
   error: null,
-  songDetailsCache: {},
+  
+  // New state for the song details page
   currentSong: null,
   isLoadingDetails: false,
+  songDetailsCache: {}, // Cache to avoid re-fetching
 
   // --- Actions ---
   getAccessToken: async () => {
+    // Avoid re-fetching if token already exists
+    if (get().accessToken) return get().accessToken;
+
     const authParameters = {
       method: 'POST',
       headers: {
@@ -32,18 +37,16 @@ export const useAppStore = create((set, get) => ({
       return data.access_token;
     } catch (error) {
       console.error('Authentication Error:', error);
+      set({ error: 'Authentication failed.' });
       return null;
     }
   },
 
   fetchSearchResults: async (query) => {
     set({ isLoading: true, error: null });
-    let token = get().accessToken;
-    if (!token) token = await get().getAccessToken();
-    if (!token) {
-      set({ error: 'Authentication failed.', isLoading: false });
-      return;
-    }
+    const token = await get().getAccessToken();
+    if (!token) return; // Exit if no token
+
     const searchParameters = {
       method: 'GET',
       headers: {
@@ -62,18 +65,18 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  // ✅ NEW ACTION: Fetches details for a single song
   fetchSongDetails: async (songId) => {
+    // 1. Check cache first
     if (get().songDetailsCache[songId]) {
       set({ currentSong: get().songDetailsCache[songId] });
       return;
     }
-    set({ isLoadingDetails: true });
-    let token = get().accessToken;
-    if (!token) token = await get().getAccessToken();
-    if (!token) {
-      set({ error: 'Authentication failed.', isLoadingDetails: false });
-      return;
-    }
+
+    set({ isLoadingDetails: true, error: null, currentSong: null });
+    const token = await get().getAccessToken();
+    if (!token) return;
+
     const searchParameters = {
       method: 'GET',
       headers: {
@@ -85,6 +88,8 @@ export const useAppStore = create((set, get) => ({
       const response = await fetch(`https://api.spotify.com/v1/tracks/${songId}`, searchParameters);
       if (!response.ok) throw new Error('Failed to fetch song details.');
       const data = await response.json();
+      
+      // 2. Save to cache and set as current song
       set(state => ({
         songDetailsCache: { ...state.songDetailsCache, [songId]: data },
         currentSong: data,
